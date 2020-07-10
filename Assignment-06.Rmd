@@ -1,0 +1,176 @@
+---
+title: "Assignment-06"
+author: "Mitch Lueken"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: html_document
+---
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, error = FALSE)
+
+options(width = 683)
+
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+library(HelpersMG)
+library(scales)
+library(ggpmisc)
+```
+
+```{r download}
+if(!file.exists("./raw_data/owid-covid-data.csv")) {
+  wget(url = "https://covid.ourworldindata.org/data/owid-covid-data.csv", destfile = "./raw_data/owid-covid-data.csv")
+}
+```
+
+```{r tidyCountry}
+read_csv("./raw_data/owid-covid-data.csv") %>%
+  filter(date == "2020-06-30") %>%
+  select(Country = location, Diabetes_Prevalence = diabetes_prevalence, Over_70 = aged_70_older, Total_Deaths = total_deaths, Per_Million_Total_Deaths = total_deaths_per_million) %>%
+  filter(Country != "World") %>%
+  write.table(file = "./output/june_deaths_by_country.csv", row.names = FALSE, sep = ",")
+```
+
+```{r tidyDate}
+read_csv("./raw_data/owid-covid-data.csv") %>%
+  filter(continent == "Europe") %>%
+  select(Country = location, Date = date, Total_Deaths = total_deaths, Per_Million_Total_Deaths = total_deaths_per_million) %>%
+  write.table(file = "./output/european_deaths_by_date.csv", row.names = FALSE, sep = ",")
+
+av <- function(col1, col2, col3, col4, col5, col6, col7) {
+  i = 1
+  col0 = col1
+  for(element in col1) {
+    col0[i] = mean(c(col1[i], col2[i], col3[i], col4[i], col5[i], col6[i], col7[i]), na.rm = TRUE)
+    i = i + 1
+  }
+  return(col0)
+}
+
+read_csv("./raw_data/owid-covid-data.csv") %>%
+  filter(continent == "Europe") %>%
+  select(Country = location, Date = date, Total_Deaths = total_deaths, Per_Million_Total_Deaths = total_deaths_per_million, Per_Million_New_Deaths = new_deaths_per_million) %>%
+  group_by(Country) %>%
+  mutate(Per_Million_New_Deaths_1 = lag(Per_Million_New_Deaths, n = 1, order_by = Date),
+         Per_Million_New_Deaths_2 = lag(Per_Million_New_Deaths, n = 2, order_by = Date),
+         Per_Million_New_Deaths_3 = lag(Per_Million_New_Deaths, n = 3, order_by = Date),
+         Per_Million_New_Deaths_4 = lag(Per_Million_New_Deaths, n = 4, order_by = Date),
+         Per_Million_New_Deaths_5 = lag(Per_Million_New_Deaths, n = 5, order_by = Date),
+         Per_Million_New_Deaths_6 = lag(Per_Million_New_Deaths, n = 6, order_by = Date)) %>%
+  mutate(Weekly_Average_Per_Million_New_Deaths = av(Per_Million_New_Deaths,
+                                                    Per_Million_New_Deaths_1,
+                                                    Per_Million_New_Deaths_2,
+                                                    Per_Million_New_Deaths_3,
+                                                    Per_Million_New_Deaths_4,
+                                                    Per_Million_New_Deaths_5,
+                                                    Per_Million_New_Deaths_6)) %>%
+  filter(Date >= "2020-06-01") %>%
+  write.table(file = "./output/european_deaths_by_date2.csv", row.names = FALSE, sep = ",")
+
+read_csv("./raw_data/owid-covid-data.csv") %>%
+  select(Continent = continent, Country = location, Date = date, Total_Deaths = total_deaths, Per_Million_Total_Deaths = total_deaths_per_million, Per_Million_New_Deaths = new_deaths_per_million) %>%
+  group_by(Country) %>%
+  mutate(Per_Million_New_Deaths_1 = lag(Per_Million_New_Deaths, n = 1, order_by = Date),
+         Per_Million_New_Deaths_2 = lag(Per_Million_New_Deaths, n = 2, order_by = Date),
+         Per_Million_New_Deaths_3 = lag(Per_Million_New_Deaths, n = 3, order_by = Date),
+         Per_Million_New_Deaths_4 = lag(Per_Million_New_Deaths, n = 4, order_by = Date),
+         Per_Million_New_Deaths_5 = lag(Per_Million_New_Deaths, n = 5, order_by = Date),
+         Per_Million_New_Deaths_6 = lag(Per_Million_New_Deaths, n = 6, order_by = Date)) %>%
+  mutate(Weekly_Average_Per_Million_New_Deaths = av(Per_Million_New_Deaths,
+                                                    Per_Million_New_Deaths_1,
+                                                    Per_Million_New_Deaths_2,
+                                                    Per_Million_New_Deaths_3,
+                                                    Per_Million_New_Deaths_4,
+                                                    Per_Million_New_Deaths_5,
+                                                    Per_Million_New_Deaths_6)) %>%
+  filter(Date >= "2020-06-01") %>%
+  write.table(file = "./output/deaths_by_date.csv", row.names = FALSE, sep = ",")
+```
+
+```{r diabeetus, fig.cap = "**Figure 1:** COVID Deaths by Diabetes Prevalence", fig.align = "left"}
+ggplot(data = read_csv("./output/june_deaths_by_country.csv"), aes(x = Diabetes_Prevalence, y = Total_Deaths)) + geom_point() + labs(x = "Diabetes Prevalence (%)", y = "Total Deaths") + theme_linedraw() + scale_y_continuous(labels = scales::comma) + xlim(0,25) + ylim(0,150000)
+```
+
+<br/>
+
+```{r perCapitaWilfordBrimley, fig.cap = "**Figure 2:** Population-Adjusted COVID Deaths by Diabetes Prevalence in Countries with Over 1000 COVID Deaths", fig.align = "left"}
+ggplot(data = read_csv("./output/june_deaths_by_country.csv") %>% filter(Total_Deaths >= 1000), aes(x = Diabetes_Prevalence, y = Per_Million_Total_Deaths)) + geom_point() + labs(x = "Diabetes Prevalence (%)", y = "Deaths per Million") + theme_linedraw() + scale_y_continuous(labels = scales::comma) + xlim(0,25) + ylim(0,1000) + stat_summary(fun.data=mean_cl_normal) + 
+  geom_smooth(method='lm', se = FALSE, color = "#000000") + stat_poly_eq(formula = y ~ x, aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), parse = TRUE)
+```
+
+* There is no clear relationship between the prevalence of diabetes (on a national level) and deaths from COVID.
+
+---
+
+```{r senescence, fig.cap = "**Figure 3:** COVID Deaths by Proportion of Population Over 70", fig.align = "left"}
+ggplot(data = read_csv("./output/june_deaths_by_country.csv"), aes(x = Over_70, y = Total_Deaths)) + geom_point() + labs(x = "Population Over 70 (%)", y = "Total Deaths") + theme_linedraw() + scale_y_continuous(labels = scales::comma) + xlim(0,20) + ylim(0,150000)
+```
+
+<br/>
+
+```{r perCapitaPricesRight, fig.cap = "**Figure 4:** Population-Adjusted COVID Deaths by Proportion of Population Over 70 in Countries with Over 1000 COVID Deaths", fig.align = "left"}
+ggplot(data = read_csv("./output/june_deaths_by_country.csv") %>% filter(Total_Deaths >= 1000), aes(x = Over_70, y = Per_Million_Total_Deaths)) + geom_point() + labs(x = "Population Over 70 (%)", y = "Deaths per Million") + theme_linedraw() + scale_y_continuous(labels = scales::comma) + xlim(0,20) + ylim(0,1000) + stat_summary(fun.data=mean_cl_normal) + 
+  geom_smooth(method='lm', se = FALSE, color = "#000000") + stat_poly_eq(formula = y ~ x, aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), parse = TRUE)
+```
+
+* There is a far more clear relationship between older populations and deaths from COVID.
+
+---
+
+```{r whosOnFirst, fig.cap = "**Figure 5:** European COVID Deaths by Date", fig.align = "left"}
+ggplot(data = read_csv("./output/european_deaths_by_date.csv"), aes(x = Date, y = Total_Deaths, color = Country)) + geom_line() + labs(x = "Date", y = "Total Deaths") + theme_linedraw() + scale_y_continuous(labels = scales::comma) + ylim(0,50000)
+```
+
+* Italy was the first country to exceed 1,000 deaths, on 2020-03-13
+
+---
+
+<br/>
+<br/>
+
+---
+
+```{r europaUniversalis, fig.cap = "**Figure 6:** Population-Adjusted European COVID Deaths by Date in Countries with Over 1000 COVID Deaths", fig.align = "left"}
+ggplot(data = read_csv("./output/european_deaths_by_date.csv") %>% filter(Total_Deaths >= 1000), aes(x = Date, y = Per_Million_Total_Deaths, color = Country)) + geom_line(size = 1.5) + labs(x = "Date", y = "Deaths per Million") + theme_linedraw() + scale_y_continuous(labels = scales::comma) + ylim(0,1000)
+```
+
+* The trend in COVID cases in Europe is more clearly expressed. Statistical zombie uprising in Spain on 2020-05-25; crisis averted on 2020-06-19
+
+<br/>
+
+```{r byWeek, fig.cap = "**Figure 7:** Population-Adjusted European Weekly COVID Deaths by Date in Countries with Over 1000 COVID Deaths", fig.align = "left"}
+ggplot(data = read_csv("./output/european_deaths_by_date2.csv") %>% filter(Total_Deaths >= 1000) %>% filter(Country != "Spain"), aes(x = Date, y = 7 * Weekly_Average_Per_Million_New_Deaths, color = Country)) + geom_line(size = 1.5) + labs(x = "Date", y = "Weekly Average New Deaths per Million") + theme_linedraw() + scale_y_continuous(labels = scales::comma) + ylim(0,50)
+```
+
+* Sweden and the United Kingdom are the European outliers, with a far less contained spread of COVID.
+
+<br/>
+
+```{r poorSudAmerika, fig.cap = "**Figure 8:** Population-Adjusted Weekly COVID Deaths by Date in Countries with Over 1000 COVID Deaths", fig.align = "left"}
+comb <- function(col) {
+  i = 1
+  for(val in col) {
+    if(val == "North America" | val == "South America") {
+      col[i] = "Central/South America"
+    }
+    i = i + 1
+  }
+  return(col)
+}
+
+read_csv("./output/deaths_by_date.csv") %>%
+  filter(Total_Deaths >= 1000) %>%
+  filter(Country != "World") %>%
+  filter(Country != "Canada") %>%
+  filter(Country != "United States") %>%
+  filter(Continent == "Europe" | Continent == "North America" | Continent == "South America") %>%
+  mutate(Continent = comb(Continent)) %>%
+  ggplot(aes(x = Date, y = 7 * Weekly_Average_Per_Million_New_Deaths, color = Country, linetype = Continent)) + geom_line(size = 1.5) + labs(x = "Date", y = "Weekly Average New Deaths per Million") + theme_linedraw() + scale_y_continuous(labels = scales::comma) + ylim(0,100)
+```
+
+* However, even Sweden is under control when compared to the present trends of Central and South American Countries.
+
+---

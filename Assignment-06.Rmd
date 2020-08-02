@@ -1,0 +1,38 @@
+---
+title: "Assignment-06"
+author: "Lauren Thomas"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: html_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, error = FALSE)
+options(width = 683)
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+library(HelpersMG)
+library(scales)
+library(ggpmisc)
+library(readr)
+
+```
+
+
+```{r import_data}
+
+if(!file.exists("./raw_data/owid-covid-data.csv")) {
+  wget(url = "https://covid.ourworldindata.org/data/owid-covid-data.csv", destfile = "./raw_data/owid-covid-data.csv")
+}
+
+```
+
+```{r by_Country}
+
+read_csv("./raw_data/owid-covid-data.csv") %>%
+  filter(date == "6/30/20") %>%
+  select(Country = location, Diabetes_Prevalence = diabetes_prevalence, Over_70 = aged_70_older, Total_Deaths = total_deaths, Per_Million_Total_Deaths = total_deaths_per_million) %>%
+  filter(Country != "World") %>%
+  write.table(file = "./output/june_deaths_by_country.csv", row.names = FALSE, sep = ",")
+
+```

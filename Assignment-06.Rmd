@@ -4,7 +4,9 @@ author: "Lauren Thomas"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output: html_document
 ---
-
+<br/>
+<br/>
+<br/>
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, error = FALSE)
 options(width = 683)
@@ -30,9 +32,50 @@ if(!file.exists("./raw_data/owid-covid-data.csv")) {
 ```{r by_Country}
 
 read_csv("./raw_data/owid-covid-data.csv") %>%
-  filter(date == "6/30/20") %>%
+  filter(date == "2020-06-30") %>%
   select(Country = location, Diabetes_Prevalence = diabetes_prevalence, Over_70 = aged_70_older, Total_Deaths = total_deaths, Per_Million_Total_Deaths = total_deaths_per_million) %>%
   filter(Country != "World") %>%
   write.table(file = "./output/june_deaths_by_country.csv", row.names = FALSE, sep = ",")
 
 ```
+
+
+```{r european}
+read_csv("./raw_data/owid-covid-data.csv") %>%
+  filter(continent == "Europe") %>%
+  select(Country = location, Date = date, Total_Deaths = total_deaths, Per_Million_Total_Deaths = total_deaths_per_million) %>%
+  write.table(file = "./output/european_deaths_by_date.csv", row.names = FALSE, sep = ",")
+
+```
+
+```{r deaths_diabetes, fig.cap = "**Figure 1:** COVID-19 Deaths by Diabetes", fig.align = "left"}
+
+ggplot(data = read_csv("./output/june_deaths_by_country.csv"), aes(x = Diabetes_Prevalence, y = Total_Deaths)) + geom_point() + labs(x = "Diabetes Prevelance (%)", y = "Total Deaths") + theme_linedraw() + scale_y_continuous(labels = scales::comma) + xlim(0,25) + ylim(0,150000)
+
+
+```
+Figure 1 suggests that there is not a strong correlation between the presence of diabetes at the national population level, and COVID-19 deaths.
+<br/>
+<br/>
+
+```{r deaths_over_70, fig.cap = "**Figure 2:** COVID-19 Deaths of People Over 70", fig.align = "left"}
+
+ggplot(data = read_csv("./output/june_deaths_by_country.csv"), aes(x = Over_70, y = Total_Deaths)) + geom_point() + labs(x = "% Population over 70", y = "Total Deaths") + theme_linedraw() + scale_y_continuous(labels = scales::comma) + xlim(0,20) + ylim(0,150000)
+
+
+```
+Figure 2 suggests there is a bit of a stronger relationship between an increased population of persons aged over 70 and the total numbers of COVID-19 deaths. 
+<br/>
+<br/>
+
+```{r european_Death_Date, fig.cap = "**Figure 3:** COVID-19 Deaths by Date in European Countries"}
+
+ggplot(data = read_csv("./output/european_deaths_by_date.csv"), aes(x = Date, y = Total_Deaths, color = Country)) + geom_line() + labs(x = "Date", y = "Total Deaths") + theme_linedraw() + scale_y_continuous(labels = scales::comma) + ylim(0,50000)
+
+
+
+```
+The first country to exceed 1,000 deaths from COVID-19 was Italy on 03/13/2020.
+<br/>
+<br/>
+<br/>
